@@ -50,55 +50,67 @@ AUC of 0.9592 is ~0.03 above the published benchmark of ~0.90-0.93. Published nu
 4. Chromosome format mismatch → fixed with `.str.replace('chr', '')`  
 5. Data files accidentally committed to git before .gitignore was set up → removed with `git rm -r --cached data/`  
 
+**ADDITIONAL WORK COMPLETED THIS SESSION:**  
+After the initial pipeline, ran first disorder split and temporal analysis.
+
+7. Wrote `scripts/disorder_split.py` → split variants by disorder proxy (am_class == ambiguous), ran temporal split at AlphaMissense release date (Sept 19, 2023), produced first figure `outputs/auc_over_time.png`
+8. Attempted MobiDB disorder annotation download via API → returned 0 rows, API endpoint appears broken. Will switch to AlphaFold pLDDT approach next session.
+
+**FULL DATA / RESULTS:**  
+| Metric | Value |
+|---|---|
+| Total ClinVar rows | 9,036,351 |
+| GRCh38 only | 4,484,398 |
+| After P/LP/B/LB filter | 1,728,357 |
+| With valid date | 1,713,413 |
+| After join with AlphaMissense | 212,903 |
+| Pathogenic (label=1) | 69,288 |
+| Benign (label=0) | 143,615 |
+| AlphaMissense overall AUC | **0.9592** |
+| Published AUC (literature) | ~0.90-0.93 |
+| Working rows after date filter | 208,824 |
+| Ordered variants (proxy) | 197,056 |
+| IDR proxy variants (ambiguous class) | 11,768 |
+| AUC ordered | 0.9668 |
+| AUC IDR proxy | 0.5878 |
+| Gap ordered vs IDR | 0.3791 |
+| Variants before Sept 19 2023 | 77,593 |
+| Variants after Sept 19 2023 | 131,231 |
+| AUC before AlphaMissense release | 0.9586 |
+| AUC after AlphaMissense release | 0.9608 |
+| Temporal gap (overall) | 0.0022 |
+| Ordered x Before AUC | 0.9646 |
+| Ordered x After AUC | 0.9678 |
+| IDR proxy x Before AUC | 0.5796 |
+| IDR proxy x After AUC | 0.5927 |
+
+**OBSERVATIONS:**  
+Overall AUC of 0.9592 exceeds published benchmark (~0.90-0.93), consistent with circular evidence inflating performance. Recorded before novel analysis.
+
+The IDR proxy (am_class == ambiguous) captures only 11,768 of 208,824 variants (5.6%), far below the expected ~30% of the proteome that is intrinsically disordered. This indicates the proxy is invalid - ambiguous AlphaMissense class does not correspond to structural disorder. The ordered/IDR AUC gap of 0.38 is directionally consistent with published literature but cannot be interpreted until real disorder annotations are applied.
+
+The temporal gap (0.0022) is small overall. However, the IDR proxy shows a proportionally larger relative increase (0.5796 to 0.5927) compared to ordered regions (0.9646 to 0.9678). This is directionally consistent with the hypothesis but inconclusive until real disorder annotations replace the proxy.
+
+First figure produced: `outputs/auc_over_time.png` - AUC plotted by year with AlphaMissense release marked.
+
+**PROBLEMS ENCOUNTERED:**  
+1. Tried to run Python code directly in zsh terminal → `zsh: parse error near ')'`. Fix: save all code as .py files, run with `python3 filename.py`  
+2. pandas not installed → ran `pip3 install pandas`  
+3. AlphaMissense file had no header row - first data row read as column names → fixed with `header=None` and manually assigned column names  
+4. Chromosome format mismatch (ClinVar "1" vs AlphaMissense "chr1") → fixed with `.str.replace('chr', '')`  
+5. Data files accidentally committed to git before .gitignore was set up → removed with `git filter-branch`, then force pushed  
+6. MobiDB API returned empty dataframe despite correct column headers → endpoint broken, switching to AlphaFold pLDDT next session  
+
 **NEXT SESSION GOAL:**  
-Add real disorder annotations using AlphaFold pLDDT scores, then run temporal split (pre/post Sept 19, 2023) to get first preview of the RDD signal.
+Download AlphaFold pLDDT scores for human proteome, annotate each variant as ordered (pLDDT >= 70) or disordered (pLDDT < 50), rerun the temporal split with real disorder calls, and check whether the temporal signal becomes visible.
 
 **QUESTIONS TO RESEARCH:**  
 - What exactly is pLDDT and why is <50 the standard IDR cutoff?  
 - What is a regression discontinuity design mathematically?  
 - What is PP3/BP4 in the ACMG variant classification guidelines?  
+- Why does the ambiguous class in AlphaMissense not correspond to structural disorder?  
 
 **Signed:** _________________ &emsp; **Date:** August 11, 2026
 
 ---
-
-═══════════════════════════════════════════  
-**DATE:** [fill in]  
-**SESSION:** #2  
-**TIME:** 9:47 AM - 11:53 AM  
-═══════════════════════════════════════════  
-
-**GOAL FOR TODAY:**  
-[fill in]
-
-**BACKGROUND / REASONING:**  
-[fill in]
-
-**WHAT I DID:**  
-1.   
-2.   
-3.   
-
-**DATA / RESULTS:**  
-| Metric | Value |
-|---|---|
-| | |
-
-**OBSERVATIONS:**  
-[fill in]
-
-**PROBLEMS ENCOUNTERED:**  
-[fill in]
-
-**NEXT SESSION GOAL:**  
-[fill in]
-
-**QUESTIONS TO RESEARCH:**  
-- 
-
-**Signed:** _________________ &emsp; **Date:** [fill in]
-
----
-
-
 
