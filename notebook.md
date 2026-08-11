@@ -3,29 +3,21 @@
 **Student:** Sagar Raut  
 **Started:** August 11, 2026  
 
-> **ISEF rule:** Every entry must be dated and signed. Keep a physical copy of this notebook as well — print and sign each session. Digital notebook is a backup, not a replacement.
-
----
-
-## How to use this file
-- Add a new session block at the bottom every time you work on the project
-- Never edit past entries — if you made an error, note it in the next session
-- Commit this file to GitHub at the end of every session (`git add notebook.md && git commit -m "notebook: session #X"`)
-- Print and sign physically at least once a week
+> **ISEF rule:** Every entry must be dated and signed. Keep a physical copy of this notebook as well - print and sign each session. Digital notebook is a backup, not a replacement.
 
 ---
 
 ═══════════════════════════════════════════  
 **DATE:** August 11, 2026  
 **SESSION:** #1  
-**TIME:** [fill in start] – [fill in end]  
+**TIME:** 9:47 AM - 11:53 AM  
 ═══════════════════════════════════════════  
 
 **GOAL FOR TODAY:**  
-Set up the data pipeline and confirm the ClinVar–AlphaMissense join works correctly before beginning any novel analysis.
+Set up the data pipeline and confirm the ClinVar-AlphaMissense join works correctly before beginning any novel analysis.
 
 **BACKGROUND / REASONING:**  
-The project tests whether variant effect predictors (VEPs) like AlphaMissense are circularly evaluated — labs use them to classify variants, then researchers benchmark them against those same classifications. Before testing this hypothesis, I needed to confirm I could correctly join the two core datasets on genomic coordinates.
+The project tests whether variant effect predictors (VEPs) like AlphaMissense are circularly evaluated - labs use them to classify variants, then researchers benchmark them against those same classifications. Before testing this hypothesis, I needed to confirm I could correctly join the two core datasets on genomic coordinates.
 
 **WHAT I DID:**  
 1. Installed Python environment on MacBook, confirmed Python 3.9.6  
@@ -46,15 +38,15 @@ The project tests whether variant effect predictors (VEPs) like AlphaMissense ar
 | Pathogenic (label=1) | 69,288 |
 | Benign (label=0) | 143,615 |
 | AlphaMissense AUC vs ClinVar | **0.9592** |
-| Published AUC (literature) | ~0.90–0.93 |
+| Published AUC (literature) | ~0.90-0.93 |
 
 **OBSERVATIONS:**  
-AUC of 0.9592 is ~0.03 above the published benchmark of ~0.90–0.93. Published numbers were measured on held-out sets designed to reduce label leakage. My measurement is on all of ClinVar with no such controls. This excess is a preliminary signal consistent with circular evidence inflating apparent performance. **Recorded before any novel analysis was run.**
+AUC of 0.9592 is ~0.03 above the published benchmark of ~0.90-0.93. Published numbers were measured on held-out sets designed to reduce label leakage. My measurement is on all of ClinVar with no such controls. This excess is a preliminary signal consistent with circular evidence inflating apparent performance. **Recorded before any novel analysis was run.**
 
 **PROBLEMS ENCOUNTERED:**  
 1. Tried to run Python code directly in zsh terminal → `zsh: parse error near ')'`. Fix: save all code as .py files, run with `python3 filename.py`  
 2. pandas not installed → ran `pip3 install pandas`  
-3. AlphaMissense file had no header row — first data row read as column names → fixed with `header=None` and manually assigned column names  
+3. AlphaMissense file had no header row - first data row read as column names → fixed with `header=None` and manually assigned column names  
 4. Chromosome format mismatch → fixed with `.str.replace('chr', '')`  
 5. Data files accidentally committed to git before .gitignore was set up → removed with `git rm -r --cached data/`  
 
@@ -73,7 +65,7 @@ Add real disorder annotations using AlphaFold pLDDT scores, then run temporal sp
 ═══════════════════════════════════════════  
 **DATE:** [fill in]  
 **SESSION:** #2  
-**TIME:** [fill in start] – [fill in end]  
+**TIME:** 9:47 AM - 11:53 AM  
 ═══════════════════════════════════════════  
 
 **GOAL FOR TODAY:**  
@@ -108,4 +100,5 @@ Add real disorder annotations using AlphaFold pLDDT scores, then run temporal sp
 
 ---
 
-<!-- COPY THE SESSION BLOCK ABOVE FOR EACH NEW SESSION -->
+
+
