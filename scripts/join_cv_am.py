@@ -1,0 +1,22 @@
+import pandas as pd
+from sklearn.metrics import roc_auc_score
+
+print("Loading AlphaMissense...")
+am = pd.read_csv(
+    'data/AlphaMissense_hg38.tsv.gz',
+    sep='\t',
+    comment='#',
+    header=None,
+    names=['chrom','pos','ref','alt','genome','uniprot','transcript','aa_change','am_score','am_class']
+)
+print(f"AlphaMissense rows: {len(am)}")
+print(am.head(3))
+
+# Fix chromosome format: 'chr1' -> '1'
+am['chrom'] = am['chrom'].str.replace('chr', '', regex=False)
+
+# Make score numeric
+am['am_score'] = pd.to_numeric(am['am_score'], errors='coerce')
+
+print("\nLoading ClinVar clean...")
+cv = pd.read_csv('data/clinvar_grch38_clean.csv', dtype={'Chromosome'
