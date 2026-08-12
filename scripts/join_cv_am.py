@@ -32,7 +32,7 @@ am['ref'] = am['ref'].astype(str)
 am['alt'] = am['alt'].astype(str)
 
 print("\nJoining...")
-merged = cv.merge(am[['chrom','pos','ref','alt','am_score','am_class']],
+merged = cv.merge(am[['chrom','pos','ref','alt','am_score','am_class','uniprot','aa_change']],
                   on=['chrom','pos','ref','alt'],
                   how='inner')
 print(f"Variants after join: {len(merged)}")

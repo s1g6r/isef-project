@@ -110,7 +110,80 @@ Download AlphaFold pLDDT scores for human proteome, annotate each variant as ord
 - What is PP3/BP4 in the ACMG variant classification guidelines?  
 - Why does the ambiguous class in AlphaMissense not correspond to structural disorder?  
 
-**Signed:** _________________ &emsp; **Date:** August 11, 2026
+**Signed:** Sagar Raut &emsp; **Date:** August 11, 2026
+
+---
+
+═══════════════════════════════════════════  
+**DATE:** August 12, 2026  
+**SESSION:** #2  
+**TIME:** 9:05 AM - 10:51 AM  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Replace the invalid IDR proxy from session 1 with real disorder annotations (AlphaFold pLDDT), rerun the ordered-vs-IDR and temporal analysis, and sanity-check the result before trusting it.
+
+**BACKGROUND / REASONING:**  
+Session 1 ended with the am_class=='ambiguous' IDR proxy only capturing 5.6% of variants (expected ~30%), meaning it was not actually measuring structural disorder. The plan called for real AlphaFold pLDDT scores this session (Week 2 of weekly_plan.md).
+
+**WHAT I DID:**  
+1. Re-ran `scripts/get_disorder.py` (MobiDB download) to double check — confirmed the API is still broken: it returns HTTP 200 with correct column headers but zero data rows. Abandoned MobiDB permanently.
+2. Modified `scripts/join_cv_am.py` to also keep the `uniprot` and `aa_change` columns from AlphaMissense (needed to map a variant to a residue position on the protein) → reran, reproduced the same 212,903 joined variants and 0.9592 AUC as session 1, confirming the join logic itself was unaffected.
+3. Found unique UniProt accessions needed: 15,144.
+4. Wrote `scripts/get_alphafold_plddt.py` → downloaded AlphaFold CIF structure files (one per protein) from the EBI AlphaFold DB (`AF-{accession}-F1-model_v6.cif`), concurrent + resumable → 14,930 downloaded (98.6%), 214 with no AlphaFold model (isoforms/obsolete accessions, expected), 0 network errors.
+5. Wrote `scripts/annotate_plddt.py` → parsed per-residue pLDDT from the B-factor column of each CIF file (one parse per protein, not per variant), mapped to each variant via (uniprot, residue number parsed from aa_change), classified ordered (pLDDT >= 70) / intermediate (50-70) / disordered (<50) → produced `data/clinvar_am_joined_plddt.csv`.
+6. Wrote `scripts/disorder_split_plddt.py` → real ordered-vs-IDR AUC split, temporal split, and 2x2 breakdown using the pLDDT annotations → produced `outputs/auc_over_time_plddt.png`.
+7. Inspected the figure directly: the ordered/IDR AUC lines converge gradually across 2013-2021, well before the Sept 2023 AlphaMissense release — meaning a full-history pre/post comparison could be misleadingly picking up that pre-existing drift instead of a real discontinuity.
+8. Wrote `scripts/temporal_window_check.py` to test this directly: narrowed the "before" window to 2020-2023 (post-convergence, pre-release) instead of full history, recomputed the 2x2.
+
+**DATA / RESULTS:**  
+| Metric | Value |
+|---|---|
+| Unique UniProt accessions needed | 15,144 |
+| AlphaFold structures downloaded | 14,930 (98.6%) |
+| No AlphaFold model available | 214 |
+| Variants with real pLDDT annotation | 183,869 / 212,903 (86.4%) |
+| Disorder class: ordered | 60.6% |
+| Disorder class: disordered (IDR) | 31.1% (expected ~30% - validates the annotation) |
+| Disorder class: intermediate | 8.3% |
+| AUC ordered (real pLDDT) | 0.9541 |
+| AUC IDR (real pLDDT) | 0.9444 |
+| Gap ordered vs IDR | 0.0096 |
+| AUC before AlphaMissense release (full history) | 0.9608 |
+| AUC after AlphaMissense release (full history) | 0.9630 |
+| Ordered x Before (full history) | 0.9538 |
+| Ordered x After (full history) | 0.9531 |
+| IDR x Before (full history) | 0.9333 |
+| IDR x After (full history) | 0.9545 |
+| IDR jump, full history | +0.0212 |
+| Ordered x Before (narrow window 2020-2023) | 0.9606 |
+| Ordered x After (narrow window) | 0.9531 |
+| IDR x Before (narrow window 2020-2023) | 0.9504 |
+| IDR x After (narrow window) | 0.9545 |
+| IDR jump, narrow window | +0.0042 |
+
+**OBSERVATIONS:**  
+The pLDDT annotation pipeline is validated: 31.1% of annotated variants fall in disordered regions, closely matching the expected ~30% proteome-wide disordered fraction (the old proxy only hit 5.6% and was invalid). This replaces the session 1 proxy result entirely.
+
+The full-history 2x2 breakdown initially looked like evidence for H1 (IDR AUC jumped +0.0212 after the AlphaMissense release while ordered stayed flat), but the figure shows the ordered/IDR AUC lines were already converging gradually between 2013 and 2021 - years before the release date. Restricting the "before" window to 2020-2023 (post-convergence, pre-release) to remove that drift shrank the IDR jump to +0.0042, essentially noise. This means the naive pre/post comparison does NOT currently show real evidence for H1 - the earlier-looking jump was mostly an artifact of pre-existing drift in ClinVar review quality over time, not something caused by AlphaMissense specifically.
+
+This is not evidence against H1 - it means a naive difference-in-means test is the wrong tool, which is exactly why the project design already called for a formal regression discontinuity (local linear regression fit on each side of the cutoff, bandwidth-limited near the cutoff, testing for a jump in the fitted intercept) rather than a simple pre/post split. That is Phase 2 of weekly_plan.md (weeks 5-9), not yet built.
+
+**PROBLEMS ENCOUNTERED:**  
+1. MobiDB API confirmed permanently broken (returns correct headers, zero rows) - do not retry in future sessions.
+2. `clinvar_am_joined.csv` from session 1 did not retain the `uniprot`/`aa_change` columns needed for residue-level mapping - had to rerun the join step with those columns added.
+3. AlphaFold DB serves current structures at API path `AF-{accession}-F1-model_v6.cif`, not `v4` as originally assumed (v4 URLs return 404).
+4. Naive full-history pre/post comparison was misleading due to a pre-existing convergence trend in the data (2013-2021) unrelated to the AlphaMissense release - caught this by visually inspecting the figure before trusting the number, then confirmed with the narrow-window check.
+
+**NEXT SESSION GOAL:**  
+Per weekly_plan.md Week 3 (Aug 25-31): download archival ClinVar releases at 6-month intervals (2018-2026) and build a first-classification-date table, needed for H3 and for confounder control.
+
+**QUESTIONS TO RESEARCH:**  
+- What is local linear regression in the context of regression discontinuity design, and how is the bandwidth around the cutoff chosen?  
+- How do I formally test whether a discontinuity is statistically significant (not just visually apparent)?  
+- Why would ClinVar review quality for IDR variants have been improving specifically between 2013 and 2021 - is there a known cause (e.g. ACMG guideline changes in 2015)?  
+
+**Signed:** Sagar Raut &emsp; **Date:** August 12, 2026
 
 ---
 
