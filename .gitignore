@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 outputs/*.png
 CLAUDE.md
+.claude-session.md
+judge_prep.md
