@@ -26,6 +26,8 @@ The project tests whether variant effect predictors (VEPs) like AlphaMissense ar
 4. Wrote `scripts/peek.py` → confirmed ClinVar column names; identified two issues: (a) both GRCh37 and GRCh38 in same file, (b) ClinicalSignificance contains compound labels like "Pathogenic/Likely pathogenic"  
 5. Wrote `scripts/filter_grch38.py` → filtered to GRCh38 only, kept P/LP/B/LB only, parsed LastEvaluated as date, mapped to binary label (1=pathogenic, 0=benign) → 1,728,357 variants; 1,713,413 with valid date  
 6. Wrote `scripts/join_cv_am.py` → identified chromosome format mismatch (ClinVar: "1", AlphaMissense: "chr1"), fixed by stripping "chr" prefix, joined on chrom + pos + ref + alt → 212,903 variants joined  
+7. Wrote `scripts/disorder_split.py` → split variants by disorder proxy (am_class == ambiguous), ran temporal split at AlphaMissense release date (Sept 19, 2023), produced first figure `outputs/auc_over_time.png`  
+8. Attempted MobiDB disorder annotation download via API → returned 0 rows, API endpoint appears broken. Will switch to AlphaFold pLDDT approach next session.  
 
 **DATA / RESULTS:**  
 | Metric | Value |
@@ -37,38 +39,9 @@ The project tests whether variant effect predictors (VEPs) like AlphaMissense ar
 | After join with AlphaMissense | 212,903 |
 | Pathogenic (label=1) | 69,288 |
 | Benign (label=0) | 143,615 |
-| AlphaMissense AUC vs ClinVar | **0.9592** |
-| Published AUC (literature) | ~0.90-0.93 |
-
-**OBSERVATIONS:**  
-AUC of 0.9592 is ~0.03 above the published benchmark of ~0.90-0.93. Published numbers were measured on held-out sets designed to reduce label leakage. My measurement is on all of ClinVar with no such controls. This excess is a preliminary signal consistent with circular evidence inflating apparent performance. **Recorded before any novel analysis was run.**
-
-**PROBLEMS ENCOUNTERED:**  
-1. Tried to run Python code directly in zsh terminal → `zsh: parse error near ')'`. Fix: save all code as .py files, run with `python3 filename.py`  
-2. pandas not installed → ran `pip3 install pandas`  
-3. AlphaMissense file had no header row - first data row read as column names → fixed with `header=None` and manually assigned column names  
-4. Chromosome format mismatch → fixed with `.str.replace('chr', '')`  
-5. Data files accidentally committed to git before .gitignore was set up → removed with `git rm -r --cached data/`  
-
-**ADDITIONAL WORK COMPLETED THIS SESSION:**  
-After the initial pipeline, ran first disorder split and temporal analysis.
-
-7. Wrote `scripts/disorder_split.py` → split variants by disorder proxy (am_class == ambiguous), ran temporal split at AlphaMissense release date (Sept 19, 2023), produced first figure `outputs/auc_over_time.png`
-8. Attempted MobiDB disorder annotation download via API → returned 0 rows, API endpoint appears broken. Will switch to AlphaFold pLDDT approach next session.
-
-**FULL DATA / RESULTS:**  
-| Metric | Value |
-|---|---|
-| Total ClinVar rows | 9,036,351 |
-| GRCh38 only | 4,484,398 |
-| After P/LP/B/LB filter | 1,728,357 |
-| With valid date | 1,713,413 |
-| After join with AlphaMissense | 212,903 |
-| Pathogenic (label=1) | 69,288 |
-| Benign (label=0) | 143,615 |
 | AlphaMissense overall AUC | **0.9592** |
 | Published AUC (literature) | ~0.90-0.93 |
-| Working rows after date filter | 208,824 |
+| Joined variants with valid LastEvaluated date | 208,824 |
 | Ordered variants (proxy) | 197,056 |
 | IDR proxy variants (ambiguous class) | 11,768 |
 | AUC ordered | 0.9668 |
@@ -85,7 +58,7 @@ After the initial pipeline, ran first disorder split and temporal analysis.
 | IDR proxy x After AUC | 0.5927 |
 
 **OBSERVATIONS:**  
-Overall AUC of 0.9592 exceeds published benchmark (~0.90-0.93), consistent with circular evidence inflating performance. Recorded before novel analysis.
+AUC of 0.9592 is ~0.03 above the published benchmark of ~0.90-0.93. Published numbers were measured on held-out sets designed to reduce label leakage. My measurement is on all of ClinVar with no such controls. This excess is a preliminary signal consistent with circular evidence inflating apparent performance. **Recorded before any novel analysis was run.**
 
 The IDR proxy (am_class == ambiguous) captures only 11,768 of 208,824 variants (5.6%), far below the expected ~30% of the proteome that is intrinsically disordered. This indicates the proxy is invalid - ambiguous AlphaMissense class does not correspond to structural disorder. The ordered/IDR AUC gap of 0.38 is directionally consistent with published literature but cannot be interpreted until real disorder annotations are applied.
 
@@ -291,6 +264,68 @@ Phase 1 is complete (all 4 weeks done). Per weekly_plan.md, Week 5 (Sep 8-14) be
 - Where can REVEL and PolyPhen-2 genome-wide precomputed scores be obtained without dbNSFP's registration friction?  
 
 **Signed:** Sagar Raut &emsp; **Date:** August 13, 2026
+
+---
+
+═══════════════════════════════════════════  
+**DATE:** August 14, 2026  
+**SESSION:** #5  
+**TIME:** 10:18 AM - 11:10 AM  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Run a naive pre/post split for AlphaMissense and ESM-1b together (Week 5 of weekly_plan.md), then extend the same ordered-vs-IDR rigor session 2 applied to AlphaMissense to ESM-1b as well, checking for the same pre-existing convergence-trend confound before trusting any jump.
+
+**BACKGROUND / REASONING:**  
+Phase 1 finished ahead of schedule (sessions 3-4, same day), so Phase 2 could start immediately. Week 5's task is a first, naive look at whether either predictor's accuracy jumps at its own release date. Session 2 already showed that a naive full-history pre/post comparison can be fooled by a slow pre-existing convergence trend unrelated to the release date - that check needed to be run for ESM-1b too, not just assumed to be clean.
+
+**WHAT I DID:**  
+1. Wrote `scripts/naive_pre_post_split.py` - naive pre/post AUC split for AlphaMissense (cutoff Sept 19, 2023) and ESM-1b (cutoff Aug 1, 2021) together on `data/clinvar_phase1_complete.csv`, with ESM-1b's LLR sign flipped up front so higher = more pathogenic for both predictors. Also plots full-history year-by-year AUC for each. Ran it.
+2. Wrote `scripts/disorder_split_esm1b.py` - mirrors session 2's `disorder_split_plddt.py` exactly, but for ESM-1b: ordered-vs-IDR AUC, 2x2 breakdown at the Aug 2021 cutoff, year-by-year ordered/IDR plot. Ran it.
+3. Inspected `outputs/auc_over_time_esm1b_disorder.png` directly before trusting the 2x2 numbers - found the same warning sign as session 2: ordered and IDR AUC lines converge gradually from about 2012 through 2021, well before the Aug 2021 release.
+4. Wrote `scripts/temporal_window_check_esm1b.py` - mirrors session 2's `temporal_window_check.py`: narrowed the "before" window to 2019-01-01 through the release date (post-most-of-the-convergence, pre-release) and recomputed the 2x2. Ran it.
+
+**DATA / RESULTS:**  
+| Metric | Value |
+|---|---|
+| AlphaMissense: valid rows | 208,824 / 212,903 |
+| AlphaMissense: AUC before Sept 2023 | 0.9586 |
+| AlphaMissense: AUC after Sept 2023 | 0.9608 |
+| AlphaMissense: naive overall jump | +0.0022 |
+| ESM-1b: valid rows | 208,597 / 212,903 |
+| ESM-1b: AUC before Aug 2021 | 0.9110 |
+| ESM-1b: AUC after Aug 2021 | 0.9351 |
+| ESM-1b: naive overall jump | +0.0241 |
+| ESM-1b: ordered variants / IDR variants (disorder split) | 108,437 / 56,527 |
+| ESM-1b: overall AUC ordered / IDR | 0.9154 / 0.9106 |
+| ESM-1b: 2x2 full history - Ordered x Before / After | 0.8896 / 0.9196 |
+| ESM-1b: 2x2 full history - IDR x Before / After | 0.8681 / 0.9226 |
+| ESM-1b: full-history jump - Ordered / IDR | +0.0300 / +0.0545 |
+| ESM-1b: 2x2 narrow window (2019-01 to 2021-08) - Ordered x Before / After | 0.8910 / 0.9196 |
+| ESM-1b: 2x2 narrow window - IDR x Before / After | 0.8938 / 0.9226 |
+| ESM-1b: narrow-window jump - Ordered / IDR | +0.0286 / +0.0288 |
+| For comparison, AlphaMissense (session 2) - full-history IDR jump | +0.0212 |
+| For comparison, AlphaMissense (session 2) - narrow-window IDR jump | +0.0042 |
+
+**OBSERVATIONS:**  
+AlphaMissense's naive overall pre/post jump is essentially zero (+0.0022) - consistent with session 2's finding that its full-history IDR-specific jump was a convergence-trend artifact, not a real discontinuity. This session's overall split confirms the same picture from a different angle: nothing moves much around the AlphaMissense release date once you look at the whole population.
+
+ESM-1b is different. Its naive overall jump (+0.0241) is real - and unlike AlphaMissense, it survives the narrow-window check: the disorder-stratified IDR jump shrinks from +0.0545 (full history) to +0.0288 (narrow window), but does not disappear. The key finding is that the narrow-window IDR jump (+0.0288) lands almost exactly on top of the narrow-window ordered jump (+0.0286) - meaning ordered and disordered regions are moving together by about the same amount. The full-history 2x2's apparent "IDR jumps more than ordered" pattern was mostly the pre-existing 2012-2021 convergence trend, same as AlphaMissense's case - but underneath that artifact, ESM-1b still has a genuine, uniform ~2.9% AUC increase around its own release date that AlphaMissense does not have.
+
+This means the disorder-specific sub-hypothesis (H1: circularity worse in IDRs) is not currently supported by either predictor's naive 2x2 once the convergence confound is removed. But ESM-1b's overall (non-disorder-specific) jump is a real, still-unexplained signal worth carrying into the formal RDD in Week 6 - it just isn't the IDR-concentrated effect the raw numbers first suggested.
+
+**PROBLEMS ENCOUNTERED:**  
+1. Nearly reported ESM-1b's full-history IDR jump (+0.0545) as evidence for H1 without first checking for the same convergence-trend confound session 2 found for AlphaMissense - caught this by inspecting `outputs/auc_over_time_esm1b_disorder.png` before writing up the 2x2 numbers, same discipline as session 2.
+2. Unlike AlphaMissense's case, the confound check did not fully explain away ESM-1b's jump - it only removed the part that looked disorder-specific. Needed to slow down and compare narrow-window ordered vs. IDR jumps directly (0.0286 vs 0.0288) rather than assuming "narrowed the window" automatically meant "signal debunked."
+
+**NEXT SESSION GOAL:**  
+Per weekly_plan.md Week 6 (Sep 15-21): implement the actual regression discontinuity design (local linear regression fit on each side of the cutoff, bandwidth-limited near the cutoff, testing for a jump in the fitted intercept) for both AlphaMissense and ESM-1b - the real hypothesis test the naive splits in sessions 2 and 5 were building toward.
+
+**QUESTIONS TO RESEARCH:**  
+- Why would ESM-1b show a real overall jump at its release while AlphaMissense shows none at all - is that a property of how each model was trained/released, or something about ClinVar's review practices specifically around 2021?  
+- For the Week 6 RDD, what bandwidth should be used around each cutoff, and does using `first_seen_release` (6-month resolution) instead of `LastEvaluated` (continuous) as the running variable change the answer?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 14, 2026
 
 ---
 
