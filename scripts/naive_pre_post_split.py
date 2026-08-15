@@ -3,12 +3,11 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 
-# Session 5 (weekly_plan.md Week 5): naive pre/post split for AlphaMissense
-# AND ESM-1b together -- first look at temporal signal across two independent
-# predictors instead of one. "Naive" = split on ClinVar's own LastEvaluated
-# date, same variable session 2 used for the AlphaMissense-only split. This
-# is the baseline Week 6's RDD (local linear regression each side of the
-# cutoff) will replace with a rigorous jump test.
+# Naive pre/post split for AlphaMissense AND ESM-1b together -- first look at
+# temporal signal across two independent predictors instead of one. "Naive" =
+# split on ClinVar's own LastEvaluated date, same variable session 2 used for
+# the AlphaMissense-only split. This is the baseline the RDD (local linear
+# regression each side of the cutoff) will replace with a rigorous jump test.
 #
 # ESM-1b sign convention: esm1b_llr is scored so LOWER (more negative) = more
 # pathogenic (Brandes et al. 2023 use a -7.5 cutoff) -- opposite of am_score

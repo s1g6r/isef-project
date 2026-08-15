@@ -2,10 +2,11 @@ import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Week 3 goal (weekly_plan.md): archival ClinVar releases at 6-month intervals,
-# 2018-2026, to later build a first-classification-date table (needed for H3
-# and for confounder control -- knowing when a variant was FIRST classified,
-# not just when it was LAST evaluated).
+# Downloads archival ClinVar releases at 6-month intervals, 2018-2026, to later
+# build a first-classification-date table -- needed for confounder control and
+# for testing whether the release-date jump disappears on non-computational
+# evidence (knowing when a variant was FIRST classified, not just when it was
+# LAST evaluated, is the key piece missing from every analysis so far).
 #
 # NCBI's archive splits by era:
 #   2018-2024 -> https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/archive/{year}/variant_summary_{year}-{month}.txt.gz

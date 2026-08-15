@@ -1,8 +1,8 @@
 import pandas as pd
 
-# Closes out Phase 1 (weekly_plan.md line 19 exit check): one clean dataset
-# with ClinVar labels + AlphaMissense scores + ESM-1b scores + pLDDT disorder
-# annotations + first-classification dates, all in one place.
+# Builds the final joined dataset: one clean file with ClinVar labels +
+# AlphaMissense scores + ESM-1b scores + pLDDT disorder annotations +
+# first-classification dates, all in one place.
 #
 # Join key is chrom/pos/ref/alt, same key used for every join so far in this
 # project. clinvar_am_joined_plddt_esm1b.csv's chrom/pos/ref/alt originate from
@@ -34,7 +34,7 @@ def main():
     merged.to_csv(OUT_PATH, index=False)
     print(f"Saved to {OUT_PATH}")
 
-    print("\nPhase 1 exit check (weekly_plan.md):")
+    print("\nColumn completeness in the final dataset:")
     for col, label in [("label", "ClinVar labels"), ("am_score", "AlphaMissense scores"),
                         ("esm1b_llr", "ESM-1b scores"), ("disorder_class", "pLDDT disorder annotations"),
                         ("first_seen_release", "First-classification dates")]:

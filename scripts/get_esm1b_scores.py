@@ -1,8 +1,8 @@
 import os
 import urllib.request
 
-# Session 4 (weekly_plan.md Week 4): add ESM-1b scores, predictor #2 of the
-# 4-predictor RDD design (AlphaMissense 2023, ESM-1b 2021, REVEL 2016, PolyPhen-2 2010).
+# Downloads ESM-1b scores, the second of four predictors in the RDD design
+# (AlphaMissense 2023, ESM-1b 2021, REVEL 2016, PolyPhen-2 2010).
 #
 # ESM-1b (Brandes et al. 2023, Nature Genetics) has no single bulk genome-wide
 # download like AlphaMissense's flat tsv.gz -- the official distribution is an
