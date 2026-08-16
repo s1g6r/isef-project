@@ -489,3 +489,161 @@ Run the permutation test (randomizing the cutoff date and re-running the RDD man
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 16, 2026  
+**SESSION:** #9  
+**TIME:** 9:00 AM - 10:15 AM  
+═══════════════════════════════════════════
+
+**GOAL FOR TODAY:**  
+Run the permutation test on AlphaMissense and ESM-1b - the check that's been deferred since session 6 - and use it to actually settle REVEL's fate instead of just eyeballing its bandwidth instability.
+
+**BACKGROUND / REASONING:**  
+Every RDD p-value reported so far (sessions 6-8) came from OLS, which assumes the before/after linear model is the right shape near the cutoff. If the true relationship curves even slightly, a straight-line fit can produce a "significant" jump that isn't really there. A permutation test sidesteps that assumption: rerun the identical RDD procedure at a lot of fake cutoff dates drawn from the predictor's own real data, and see whether the real jump is actually unusual compared to that distribution, or just an ordinary draw from it.
+
+**WHAT I DID:**  
+1. Wrote `scripts/permutation_test.py`. For each predictor, it draws 2,000 placebo cutoff dates from that predictor's own observed `LastEvaluated` values (excluding anything within a year of the real cutoff, and restricted to 2013 onward - ClinVar didn't exist before that, the same reason Polyphen-2 was ruled untestable in session 8), reruns the same RDD at every one, and checks how often a jump that size or bigger shows up by chance.
+2. First ran it on just AlphaMissense and ESM-1b.
+3. ESM-1b's 1yr result - the one number from session 6 that had looked real (p=0.0024) - came back with a permutation p of 0.32. Not close to significant. That made it worth checking REVEL the same way instead of writing it off from bandwidth instability alone, since it had the same "looks significant at one specific window" shape.
+4. Added REVEL to the script and reran all three predictors together, then looked at the histogram plot before trusting any single p-value - a number can be "significant" while still sitting close to the middle of a wide distribution, and the plot makes that visible in a way the p-value alone doesn't.
+5. Deleted the empty stray repo at `/Users/sagar/terminalais/isef_project` (an unused `git init` from August 11, flagged back in session 7) - decided it was safe to clean up rather than leave sitting around.
+
+**DATA / RESULTS:**  
+| Metric | Value |
+|---|---|
+| AlphaMissense permutation p, bandwidth 1yr / 2yr / 3yr | 0.746 / 0.919 / 0.807 |
+| ESM-1b permutation p, bandwidth 1yr / 2yr / 3yr | 0.320 / 0.934 / 0.939 |
+| REVEL permutation p, bandwidth 1yr / 2yr / 3yr | 0.419 / 0.124 / 0.037 |
+| ESM-1b 1yr, OLS p vs. permutation p | 0.0024 vs. 0.320 |
+| REVEL 3yr, OLS p vs. permutation p | 0.00005 vs. 0.037 |
+
+**OBSERVATIONS:**  
+AlphaMissense stays solidly null at every bandwidth under the permutation test, matching what the OLS p-values already said - a consistent result across two very different ways of computing significance is about as reassuring as this kind of test gets.
+
+ESM-1b is the real story. The 1yr OLS p-value (0.0024) looked like the strongest signal in the whole project up through session 6, but the permutation p-value for the same result is 0.32 - completely unremarkable. Looking at the histogram, the placebo jumps for ESM-1b aren't centered at zero, they lean positive, so a lot of random cutoff dates produce a jump that size just from whatever general trend is in the data, with nothing to do with ESM-1b's actual release. That lines up with session 7's finding that the Aug 2021 peak was a ClinVar-side batch effect, not something about ESM-1b itself - now there are two independent reasons not to trust that number, not just one.
+
+REVEL is genuinely borderline in a way ESM-1b wasn't. Its permutation p-value at 3yr is 0.037 - technically under 0.05 - and the plot shows the real jump sitting clearly out past almost all of the placebo distribution at that bandwidth. But at 1yr and 2yr the real jump is negative and sits well inside the placebo bulk, not close to significant. A real discontinuity should show up in some form across nearby bandwidths, not flip sign and only appear at the widest window. I'm treating REVEL as inconclusive rather than a finding, and I'm not going to try `first_seen_release` as an alternative running variable to see if it "fixes" the sign flip - re-running a test with a different setup after seeing an unstable result is exactly the kind of after-the-fact fishing this whole project is trying to catch in other tools, so doing it here would undercut the point.
+
+**PROBLEMS ENCOUNTERED:**  
+None on the technical side this session - the script built cleanly on top of `rdd_analysis.py`'s existing `run_rdd` function, and the runtime (a few minutes for ~12,000 total RDD fits across three predictors and three bandwidths) was fine.
+
+**NEXT SESSION GOAL:**  
+Move on to the confounder analysis: match on allele frequency, gene, and review status, and try a within-protein paired comparison, so the AlphaMissense/ESM-1b null results aren't just "no jump" but "no jump even after accounting for the more obvious alternative explanations."
+
+**QUESTIONS TO RESEARCH:**  
+- What's a reasonable way to do a "within-protein paired" comparison here - matching each post-cutoff variant to a pre-cutoff variant in the same gene/protein, or something else?  
+- Is allele frequency data (gnomAD or similar) already obtainable through something already in the pipeline, or does this need a new data source?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 16, 2026
+
+---
+
+═══════════════════════════════════════════  
+**DATE:** August 16, 2026  
+**SESSION:** #10  
+**TIME:** 10:20 AM - 12:35 PM  
+═══════════════════════════════════════════
+
+**GOAL FOR TODAY:**  
+Add the confounder analysis the plan calls for - allele frequency, gene, and review status - to check whether AlphaMissense and ESM-1b's null RDD results actually hold up once the more obvious alternative explanations are accounted for, not just on raw data.
+
+**BACKGROUND / REASONING:**  
+Session 9 settled the RDD/permutation-test picture for all four predictors, but the original plan always called for a confounder-controlled estimate on top of the raw discontinuity test, not instead of it. Two of the three confounders (gene, review status) were already columns in the dataset from earlier sessions - only allele frequency needed new work.
+
+**WHAT I DID:**  
+1. Checked dbNSFP's own file header before assuming a new download was needed, since dbNSFP was already sitting on disk from session 7 - it bundles `gnomAD_exomes_AF` and `gnomAD_genomes_AF` as extra columns, so no new data source was needed at all.
+2. Wrote `scripts/annotate_gnomad_af.py`, reusing the same memory-safe streaming join from session 8's dbNSFP join, to add those two columns onto the dataset - produced `data/clinvar_complete.csv`, the new canonical file.
+3. Wrote `scripts/confounder_rdd.py`: reran the AlphaMissense/ESM-1b RDD with review status (as dummy variables), submitter count (standardized), and log allele frequency (with a missing-indicator, since being entirely absent from gnomAD is itself informative, not just a gap) added as covariates directly in the regression.
+4. Wrote `scripts/within_protein_paired.py` - a separate approach to the gene/protein confound specifically. Matches each post-cutoff variant to its nearest pre-cutoff variant in the same protein by residue position, then runs McNemar's test on the paired correct/incorrect outcomes. This controls for protein identity through matching instead of a regression term, since there are thousands of genes.
+5. The confounder-adjusted RDD came back with two OLS p-values that looked newly significant compared to the raw RDD (AlphaMissense at 3yr, ESM-1b at 1yr). Since session 9 already proved an OLS p-value in this exact design can be wrong, trusting these two without the same check would have been inconsistent - wrote `scripts/confounder_permutation_test.py` to permutation-test the confounder-adjusted model too.
+
+**DATA / RESULTS:**  
+| Metric | AlphaMissense | ESM-1b |
+|---|---|---|
+| Raw RDD jump, 1yr / 2yr / 3yr | +0.0046 / +0.0017 / +0.0037 | +0.0237 / -0.0026 / +0.0019 |
+| Confounder-adjusted jump, 1yr / 2yr / 3yr | +0.0009 / +0.0030 / +0.0061 | +0.0179 / +0.0023 / +0.0021 |
+| Confounder-adjusted OLS p, 1yr / 2yr / 3yr | 0.850 / 0.364 / 0.039 | 0.023 / 0.711 / 0.710 |
+| Confounder-adjusted permutation p, 1yr / 2yr / 3yr | 0.919 / 0.832 / 0.582 | 0.350 / 0.904 / 0.945 |
+| Within-protein paired jump (2yr) | +0.0017 | +0.0000 |
+| Within-protein paired McNemar p (2yr) | 0.206 | 1.000 |
+| gnomAD_exomes_AF / gnomAD_genomes_AF populated | 129,665 / 212,903 (60.9%), 116,453 / 212,903 (54.7%) | (same dataset) |
+
+**OBSERVATIONS:**  
+Every method run today and across sessions 6-10 - raw RDD, permutation test, confounder-adjusted RDD, confounder-adjusted permutation test, and within-protein paired matching - agrees on the same thing: no real discontinuity for AlphaMissense or ESM-1b at any bandwidth, even after controlling for review status, submitter count, allele frequency, and protein identity. Four architecturally different ways of testing the same question landing on the same answer is a lot more convincing than any one of them alone.
+
+The confounder-adjusted model did throw two OLS p-values under 0.05 at first (AlphaMissense at 3yr, ESM-1b at 1yr), and it would have been easy to read that as "the confounder analysis found something the raw RDD missed." Running them through the same permutation check that already caught session 6's ESM-1b result killed both (permutation p=0.582 and 0.350). Worth remembering going forward: adding covariates to a regression doesn't make its p-values any more trustworthy by itself - it's still an OLS number with the same underlying assumption, and needs the same permutation check every time, not just the one time it was built.
+
+The within-protein paired result for ESM-1b is about as clean a null as this project has produced anywhere - the discordant pairs split exactly 2664 to 2664.
+
+This closes out H1 by the release-date discontinuity design specifically: across four independent, methodologically different checks, there's no evidence AlphaMissense or ESM-1b's apparent accuracy jumps right at their own release date. That's a meaningful negative result, not just "didn't find anything" - it took a lot of independent checking to be confident about it. It's also worth being explicit that this doesn't contradict session 8's AUC-excess finding (REVEL, Polyphen2-HVAR, and AlphaMissense all beating their own published benchmarks) - a null release-date jump rules out one specific mechanism (a sudden leak right at release) but says nothing about a slower, non-discontinuous kind of contamination, which is exactly what comparing against a leak-free benchmark is built to test.
+
+**PROBLEMS ENCOUNTERED:**  
+1. Ran `confounder_rdd.py` and `within_protein_paired.py` back to back without waiting for `annotate_gnomad_af.py` to finish first, so both failed with a `FileNotFoundError` looking for `data/clinvar_complete.csv`. Not a bug, just needed to actually let the first script finish before the others could read its output.
+2. gnomAD coverage (60.9% / 54.7%) is a lot lower than REVEL/Polyphen2's (92-99%). Expected, not an error - a lot of ClinVar pathogenic variants are rare enough to have never been observed in gnomAD's population sample at all, handled with an explicit missing-indicator column rather than dropping those rows.
+
+**NEXT SESSION GOAL:**  
+The RDD phase of the plan is done now, ahead of the original schedule. Move into the next phase: download the ProteinGym DMS (deep mutational scanning) benchmark and measure ordered vs. disordered AUC on leak-free data - data that couldn't have been in any of these predictors' training sets, since it comes from lab experiments rather than clinical databases - then compare those numbers to the ClinVar-based AUCs from session 8. This is H2, the test that doesn't depend on ClinVar's dates at all, and it's what actually makes session 8's AUC-excess finding interpretable one way or the other.
+
+**QUESTIONS TO RESEARCH:**  
+- Where's the best source for the ProteinGym DMS benchmark - a direct download, or does it need the same kind of registration/mirror research REVEL and PolyPhen-2 needed back in session 7?  
+- Does ProteinGym already include AlphaMissense/ESM-1b/REVEL/PolyPhen-2 scores for its variants, or does each predictor need to be rerun on ProteinGym's variant set separately?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 16, 2026
+
+---
+
+═══════════════════════════════════════════  
+**DATE:** August 16, 2026  
+**SESSION:** #11  
+**TIME:** 12:40 PM - 3:20 PM  
+═══════════════════════════════════════════
+
+**GOAL FOR TODAY:**  
+Get H2 running - leak-free AUC for AlphaMissense and ESM-1b on ProteinGym's experimental DMS (deep mutational scanning) assays, to see whether the ClinVar-based accuracy numbers from session 8 hold up on data that couldn't possibly have leaked into either predictor's training set.
+
+**BACKGROUND / REASONING:**  
+Sessions 6-10 tested for a discontinuity right at each predictor's release date and found nothing - a comprehensive null across five independent methods. But that only rules out one specific mechanism: a sudden leak tied to a release date. It doesn't test whether ClinVar itself, as a benchmark, produces inflated numbers for other reasons. ProteinGym's DMS data is measured in a lab and has nothing to do with ClinVar's curation process or dates, so any gap between a predictor's ClinVar accuracy and its ProteinGym accuracy is evidence the ClinVar number doesn't reflect real-world discriminative skill, whatever the reason turns out to be.
+
+**WHAT I DID:**  
+1. Researched where ProteinGym lives and what it actually includes before downloading anything, the same way REVEL/PolyPhen-2 got vetted in session 7. Found: no registration needed; ESM-1b already has precomputed scores in ProteinGym's own baseline set, so it doesn't need to be rerun; AlphaMissense, REVEL, and PolyPhen-2 are not in ProteinGym's baselines. Checked whether AlphaMissense could still be added without running the model myself - the file already downloaded in session 1 (`data/AlphaMissense_hg38.tsv.gz`) turned out to be DeepMind's genome-wide release, covering virtually all possible human missense variants with `uniprot_id` and `protein_variant` columns already built in, so it could be cross-referenced directly. Scoped H2 to AlphaMissense and ESM-1b only with the user, documenting REVEL/PolyPhen-2 as untestable this way - same honest-limitation treatment PolyPhen-2 got in the RDD phase.
+2. Wrote `scripts/get_proteingym.py` to download the DMS assay data and ESM-1b's baseline scores, filtered to human-taxon assays only (96 of 217 total), since ClinVar and AlphaMissense are both human-only.
+3. First run had a genuine mistake: assumed the 4.4GB scores zip had one file per model, found zero filename matches for "esm1b", and the script deleted the zip anyway before confirming anything worked - meant redownloading 4.4GB. Fixed the script so it never deletes a zip unless its extraction actually matched something. The real structure turned out to be one file per assay with all 43 models as columns inside (the zip's 217 entries matching 217 total assays was the giveaway) - the actual fix was extracting by the same assay-filename matching already used correctly for the DMS ground-truth data, not by model name.
+4. Wrote `scripts/proteingym_leak_free_analysis.py` to join AlphaMissense scores onto ProteinGym's variants and compute both predictors' AUC against the DMS ground truth, plus the current ClinVar AUCs computed the same way for a fair comparison. First run: AlphaMissense matched 0% of variants - ProteinGym's own reference file uses UniProt's mnemonic entry name (like "PAI1_HUMAN"), not the accession number ("P05121") AlphaMissense's file actually keys on.
+5. Wrote `scripts/get_uniprot_mapping.py` to translate the 96 human entry names to real accessions via UniProt's own REST API. Its first version had its own bug - captured an entire tab-separated API response line instead of splitting out just the accession field, producing a mapping file that looked plausible (right shape, right file) but was still useless. Caught this from the analysis script's second run still showing 0% matched, not from inspecting the mapping file directly first.
+6. With the mapping fixed, the join matched 92,280 of 329,664 variants (28.0%) for AlphaMissense. Before trusting that number, wrote `scripts/verify_proteingym_am_join.py` to spot-check 30 random matched rows against each protein's real sequence (the reference file's `target_seq` column) - confirming the claimed reference amino acid is actually at the claimed position. 30/30 passed, confirming the join is really working and 28% is genuine partial coverage, not a silent numbering bug.
+7. Ran the review-status check from this session's own open question: does restricting ClinVar to only its highest-confidence labels ("reviewed by expert panel", "practice guideline") change the AUC gap to ProteinGym in an informative way? Wrote `scripts/clinvar_review_status_check.py` to compare.
+
+**DATA / RESULTS:**  
+| Metric | AlphaMissense | ESM-1b |
+|---|---|---|
+| ProteinGym leak-free AUC | 0.7164 (n=92,280) | 0.6906 (n=329,664) |
+| Current ClinVar AUC (same method) | 0.9592 (n=212,903) | 0.9299 (n=212,676) |
+| Difference (leak-free minus ClinVar) | -0.2428 | -0.2393 |
+| AlphaMissense join match rate | 92,280 / 329,664 (28.0%) | - |
+| Join verification (30 sampled matches) | 30/30 correct reference amino acid at claimed position | - |
+| ClinVar AUC, high-confidence-only (expert panel / practice guideline, n=4,805) | 0.9384 (full dataset: 0.9592) | 0.9082 (full dataset: 0.9299) |
+
+**OBSERVATIONS:**  
+Both predictors drop by almost exactly the same amount moving from ClinVar to ProteinGym's leak-free data - AlphaMissense from 0.9592 to 0.7164 (-0.2428), ESM-1b from 0.9299 to 0.6906 (-0.2393). Two architecturally very different models landing on nearly identical drops is a striking pattern, and it's the single biggest number this project has produced so far: ClinVar-based accuracy substantially overstates how well these predictors actually discriminate on data that couldn't have leaked into training.
+
+That said, I want to be careful about what this drop actually proves, because it isn't the same thing as proving training-data leakage specifically. Sessions 6-10 already tested for a leakage signature directly - a sudden jump right at each predictor's release date - across five independent methods, and found nothing. If ClinVar performance were inflated purely because these models had literally seen ClinVar labels during training, that kind of jump is exactly what should show up, and it didn't. So the ProteinGym gap more likely points at something else: ClinVar is a curated clinical database, and curated pathogenic/benign calls tend to be the clearer, more extreme cases - a variant usually only gets classified once there's fairly convincing evidence either way. ProteinGym's DMS assays instead measure every possible substitution at every position, including a lot of genuinely borderline, intermediate-effect variants a curated database would rarely even contain. ClinVar could simply be an easier benchmark by composition - overrepresenting the obvious cases - without any model ever having seen ClinVar labels during training. Both explanations would produce the same kind of AUC drop, and this analysis alone can't fully separate them. What's actually established here is narrower but still real: a large chunk of ClinVar-based accuracy doesn't carry over to a genuinely independent test, whatever the underlying reason turns out to be.
+
+Also worth taking seriously, not just as footnotes: DMS fitness and clinical pathogenicity aren't the same construct (a variant can reduce protein function in a lab assay without necessarily causing human disease, and vice versa), and ProteinGym's 96 human assays cover proteins chosen for experimental tractability, not the same disease-gene-heavy population ClinVar represents. AlphaMissense's number rests on a partial (28%) subset of the same variant pool ESM-1b covers in full, though the spot-check gives real confidence that subset isn't systematically biased by a join bug.
+
+The review-status check came back the opposite of what I expected going in. My assumption was that restricting to expert-panel-reviewed variants would push the ClinVar AUC noticeably higher, supporting the idea that ClinVar overrepresents easy, obvious cases across the board. Instead both predictors got slightly *worse* on the high-confidence subset (AlphaMissense -0.0207, ESM-1b -0.0217) - small, but the wrong direction for that explanation, and tiny compared to the -0.24 ProteinGym gap either way. Thinking about why: ClinVar's expert panels don't necessarily review the "easiest" variants - if anything, a variant probably gets pulled into formal expert-panel review specifically because it's clinically important or was previously contested, not because it's routine. So "reviewed by expert panel" measures how well-vetted the *label* is, not how easy the *variant* is to classify - a different axis than what I'd assumed. Net effect: this check doesn't support review-status composition as an explanation for the big ProteinGym gap, and the actual explanation is still open. That's a useful negative result, not a wasted script.
+
+**PROBLEMS ENCOUNTERED:**  
+1. `get_proteingym.py` assumed the wrong internal structure for the 4.4GB scores zip and deleted it before confirming anything worked, requiring a full 4.4GB redownload. Fixed the script to never delete a zip until its extraction is confirmed to have actually matched something.
+2. `proteingym_leak_free_analysis.py`'s first run matched 0% of AlphaMissense variants - ProteinGym's reference file uses UniProt mnemonic entry names, not accessions, which wasn't clear from any documentation and only became obvious from checking one real row directly.
+3. `get_uniprot_mapping.py`'s first version captured an entire tab-separated API response line instead of splitting out just the accession field, producing a mapping file that looked structurally fine but was still useless - only caught because the analysis script's match rate stayed at 0% on the second run.
+
+**NEXT SESSION GOAL:**  
+Think through how to present the leakage-vs-benchmark-composition ambiguity honestly in any future writeup, and look for a follow-up test that could actually distinguish the two explanations - for example, checking whether the AUC drop concentrates near the median DMS score (where "easier benchmark composition" would predict most of the damage) versus being spread evenly across the fitness distribution. Also worth deciding whether to extend session 2's ordered-vs-disordered split to this ProteinGym data, since that was one of the project's original angles and hasn't been applied to a leak-free benchmark yet.
+
+**QUESTIONS TO RESEARCH:**  
+- Is there a clean way to test the leakage-vs-composition-difficulty question directly, rather than leaving it as an open interpretive question? (The review-status angle didn't pan out - see above. The DMS-score-distance-from-median idea from earlier in this entry is the next candidate.)
+
+**Signed:** Sagar Raut &emsp; **Date:** August 16, 2026
+
+---
+
