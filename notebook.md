@@ -647,3 +647,57 @@ Think through how to present the leakage-vs-benchmark-composition ambiguity hone
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 17, 2026  
+**SESSION:** #12  
+**TIME:** 3:45 PM - 4:27 PM  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Try the DMS-score-distance-from-median idea raised at the end of session 11 - a direct test of whether the ~0.24 AUC gap between ClinVar and ProteinGym comes mostly from ClinVar avoiding ambiguous variants, or whether it's spread more evenly across the fitness distribution in a way that composition alone can't explain.
+
+**BACKGROUND / REASONING:**  
+Session 11 left the leakage-vs-composition question open on purpose rather than guessing at it. The review-status check that session already ran ruled out one version of the composition idea (restricting to expert-panel-reviewed variants didn't raise the AUC), but that only tested how well-vetted a label is, not how biologically ambiguous the underlying variant actually is. Those are different things, and the second one is closer to what "composition-difficulty" actually means.
+
+**WHAT I DID:**  
+1. Wrote `scripts/proteingym_median_distance_stratification.py`, building on session 11's AlphaMissense-lookup and UniProt-mapping code, but this time pulling in the continuous `DMS_score` column too - session 11 only kept the already-binarized version, which isn't enough to measure how far a variant sits from the middle of its assay's distribution.
+2. For each variant, computed its percentile rank within its own assay's fitness scores (0.5 = right at the median, 0 or 1 = at either extreme), then its distance from that median. Percentile rather than raw distance, since different assays measure fitness on completely different scales.
+3. First pass split variants into three groups (near median / middle / far from median) and got AUC for both predictors in each. Caught and fixed two rough spots before trusting the output: a leftover dead conditional in the AlphaMissense merge left over from adapting session 11's code, and a case where `pd.qcut` can error out (or silently produce fewer groups than asked for) when pooling percentile-based distances across 96 differently sized assays puts identical values right on a bin boundary - added `duplicates="drop"` with a fallback so the script doesn't crash and doesn't mislabel groups if that happens.
+4. The three-group split showed accuracy climbing clearly as variants got more extreme, but three points aren't enough to tell whether that climb keeps going all the way to the tail or levels off early. Reran the same script with ten groups (deciles) instead of three to see the actual shape.
+
+**DATA / RESULTS:**  
+| Decile (distance from assay median) | ESM-1b AUC | AlphaMissense AUC |
+|---|---|---|
+| 1 (near median, most ambiguous) | 0.5074 | 0.5167 |
+| 2 | 0.5329 | 0.5442 |
+| 3 | 0.5717 | 0.6013 |
+| 4 | 0.6089 | 0.6384 |
+| 5 | 0.6608 | 0.6885 |
+| 6 | 0.6915 | 0.7439 |
+| 7 | 0.7404 | 0.8096 |
+| 8 | 0.7876 | 0.8323 |
+| 9 | 0.8113 | 0.8669 |
+| 10 (most extreme, most unambiguous) | 0.8206 | 0.8667 |
+| For reference: ClinVar AUC (session 11) | 0.9299 | 0.9592 |
+| Remaining gap at decile 10 vs. ClinVar | 0.1093 | 0.0925 |
+| n per decile | ~32,960-32,970 | 7,582-9,989 |
+
+**OBSERVATIONS:**  
+Both predictors show almost exactly the same shape: AUC rises steadily from barely-better-than-chance at the most ambiguous decile (0.51-0.52) up to 0.81-0.87 at the most extreme decile, then flattens out between deciles 9 and 10 rather than continuing to climb. That rise is strong, real evidence for the composition-difficulty explanation - predictors really are much worse at telling apart variants with subtle, in-between fitness effects, and ClinVar's clinically curated labels mostly skip that middle ground.
+
+But the flattening matters just as much as the rise. Even at the single most unambiguous decile - the variants furthest from their assay's median in either direction - both predictors are still about 0.09-0.11 AUC below their ClinVar numbers (AlphaMissense 0.8667 vs. 0.9592, ESM-1b 0.8206 vs. 0.9299). If composition-difficulty were the entire explanation, that gap should have closed almost completely by the most extreme decile, and it didn't. So the honest read is: composition-difficulty accounts for a large share of the original 0.24 gap - restricting to the clearest-cut variants cuts the deficit roughly in half - but there's a real, bounded remainder that isn't explained by "these are just harder variants." What that remainder actually is stays an open question - could be the DMS-fitness-vs-clinical-pathogenicity mismatch already noted as a limitation in session 11, could be a subtler form of leakage than the release-date test in sessions 6-10 was built to catch, or could be something about the different protein populations ClinVar and ProteinGym cover. This result narrows the question a lot without fully closing it, which is a genuinely useful place to land rather than a letdown.
+
+**PROBLEMS ENCOUNTERED:**  
+1. First draft of the AlphaMissense merge had a leftover conditional copied over from adapting session 11's script that didn't actually do anything useful - cleaned it up before running anything, rather than leaving confusing dead logic in a script meant to be readable later.
+2. `pd.qcut` can fail (or quietly return fewer bins than requested) when the same value lands on more than one bin edge, which is a real risk here since percentile-based distances from 96 assays of very different sizes get pooled together. Added `duplicates="drop"` plus a check that falls back to labeling the actual number of bins produced, so the script degrades safely instead of crashing or mislabeling groups if it happens.
+
+**NEXT SESSION GOAL:**  
+Decide between two directions: extend session 2's ordered-vs-disordered pLDDT split to this ProteinGym data, now that there's a leak-free benchmark to run it on and that angle hasn't been touched since the original project design - or start shifting toward writing up and synthesizing everything found so far, since both major threads (the release-date RDD design and the leak-free comparison) now have solid, honestly-framed conclusions.
+
+**QUESTIONS TO RESEARCH:**  
+- What's actually behind the ~0.09-0.11 AUC gap that survives even at the most extreme, least ambiguous ProteinGym variants - is there a way to test the DMS-fitness-vs-clinical-pathogenicity mismatch directly, rather than just noting it as a possible explanation?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 17, 2026
+
+---
+
