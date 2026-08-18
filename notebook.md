@@ -701,3 +701,52 @@ Decide between two directions: extend session 2's ordered-vs-disordered pLDDT sp
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 18, 2026  
+**SESSION:** #13  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Take the first of session 12's two candidate directions: extend session 2's ordered-vs-disordered pLDDT split to the ProteinGym leak-free benchmark. That angle - do AlphaMissense and ESM-1b get worse in disordered regions - was one of the project's original design pillars, but until now it had only ever been tested against ClinVar's curated labels, never against ProteinGym's exhaustive, leak-free mutagenesis data.
+
+**BACKGROUND / REASONING:**  
+On ClinVar, both predictors showed only a small ordered-vs-IDR AUC gap (session 2/5). One live possibility I hadn't tested: that small gap could itself be a ClinVar curation artifact, the same kind of composition-difficulty effect sessions 11-12 found for the overall ClinVar-vs-ProteinGym drop. If ClinVar rarely resolves ambiguous IDR variants into a firm classification the way it rarely contains ambiguous ordered-region ones, the ordered/IDR gap on ClinVar could be artificially compressed regardless of whether the underlying predictors are actually much worse in disordered regions. ProteinGym's assays mutate every position exhaustively, ordered or disordered, without that curation filter - so if the true gap is bigger than ClinVar shows, this comparison should reveal it.
+
+**WHAT I DID:**  
+1. Checked which of the 81 unique UniProt proteins behind ProteinGym's 96 human-taxon DMS assays already had AlphaFold structures downloaded from session 2's ClinVar-wide fetch (`data/alphafold_cif/`) - 67 of 81 already present. Downloaded the remaining 14 directly; 11 succeeded, 3 (BRCA2/P51587, UBR5/O95071, Q5VST9) returned HTTP 404 from AlphaFold DB, almost certainly because they're large multi-domain proteins AlphaFold DB serves as fragmented multi-file models rather than a single F1 file - not chased further, those proteins are simply excluded same as any other "no structure available" case.
+2. Wrote `scripts/proteingym_disorder_split.py`, reusing session 11's `proteingym_leak_free_analysis.py` loader functions (`load_alphamissense_lookup`, `load_proteingym_scores`) rather than duplicating that logic, plus session 2's `annotate_plddt.py` CIF-parsing approach adapted for ProteinGym's `mutant` column (same "letter-number-letter" format as ClinVar's `aa_change`, so the same regex applies unchanged).
+3. Classified every variant's residue as ordered (pLDDT >= 70) / intermediate (50-70) / disordered (< 50), same cutoffs as session 2, and excluded "intermediate" from the ordered-vs-IDR comparison for the same reason session 2 did.
+4. Computed AUC separately for ordered and disordered subsets, for both predictors, on ProteinGym - and, for a same-method side-by-side, recomputed the equivalent ClinVar ordered/IDR AUCs fresh from the current canonical `data/clinvar_complete.csv` in the same script rather than trusting older session 2/5 console output.
+5. Built a grouped bar chart (`outputs/proteingym_disorder_split.png`) putting all four numbers per predictor side by side.
+
+**DATA / RESULTS:**  
+| | AlphaMissense | ESM-1b |
+|---|---|---|
+| ClinVar, ordered | 0.9530 (n=111,445) | 0.9143 (n=111,317) |
+| ClinVar, IDR | 0.9420 (n=57,158) | 0.9071 (n=57,103) |
+| ClinVar ordered-IDR gap | +0.0111 | +0.0072 |
+| ProteinGym, ordered | 0.7078 (n=76,760) | 0.6789 (n=266,645) |
+| ProteinGym, IDR | 0.5630 (n=9,459) | 0.6149 (n=38,340) |
+| ProteinGym ordered-IDR gap | +0.1448 | +0.0640 |
+
+(AlphaMissense n is smaller throughout ProteinGym because only 28% of ProteinGym variants have an AlphaMissense score, same subset-size caveat session 11 already documented. ESM-1b covers essentially the full variant set.)
+
+**OBSERVATIONS:**  
+The ordered-vs-IDR gap that looked almost negligible on ClinVar (about 1 point of AUC for AlphaMissense, under 1 point for ESM-1b) turns out to be much larger on the leak-free ProteinGym benchmark - 14.5 points for AlphaMissense, 6.4 points for ESM-1b. That's a big, clean, well-powered result (tens of thousands of variants per cell for ESM-1b) and it lines up cleanly with the project's broader theme from sessions 11-12: ClinVar-based accuracy numbers overstate how good these predictors really are, and here's a second, independent way that shows up. My working explanation is that ClinVar simply doesn't classify many truly ambiguous disordered-region variants in the first place - a variant only gets a firm pathogenic/benign call once there's fairly convincing evidence, and that evidence is harder to come by for a region with no fixed structure - so ClinVar's "disordered" bucket ends up nearly as easy, on average, as its "ordered" bucket. ProteinGym's exhaustive per-position mutagenesis has no such filter, so predictors' real IDR weakness comes through undiluted: 0.563 AUC for AlphaMissense in disordered regions is barely better than a coin flip, a genuinely bad result the ClinVar numbers never hinted at.
+
+I want to be careful not to overclaim the causal story, the same way sessions 11-12 were about the overall ClinVar-vs-ProteinGym gap. This result doesn't distinguish "predictors are genuinely much worse at IDR variant effects" from "ProteinGym's specific 96 proteins happen to have harder-than-average disordered regions for reasons unrelated to disorder itself" - session 11 already flagged that ProteinGym's protein selection (chosen for experimental tractability) isn't the same population as ClinVar's disease-gene-heavy coverage, and that caveat applies here too. What is solid: the ordered/IDR gap is real and large on the one benchmark that can't have leaked into training, and ClinVar's version of that same comparison is not a reliable stand-in for it.
+
+**PROBLEMS ENCOUNTERED:**  
+1. Three of the 81 needed UniProt structures (BRCA2 and two others) 404'd from AlphaFold DB - large multi-domain proteins that AlphaFold DB splits into multiple fragment files rather than one F1 model. Left those proteins out entirely (same handling as any protein with "no structure available") rather than building fragment-stitching logic for 3 of 81 proteins.
+2. None otherwise - reusing session 11's loader functions and session 2's CIF-parsing logic directly (rather than rewriting either) meant this script worked on the first real run.
+
+**NEXT SESSION GOAL:**  
+Both original hypotheses (H1's release-date RDD design, H2's leak-free ClinVar-vs-ProteinGym comparison, and now this ordered/IDR extension of H2) have solid, honestly-framed, well-powered results. Session 14 should shift into synthesis and writeup mode - drafting the paper/poster narrative - rather than opening a new analysis thread. IJAS Round 1 abstract is due ~February 1, 2027, so there's runway, but the project is at the point where the next unit of value is likely organizing and communicating what's already been found rather than finding more.
+
+**QUESTIONS TO RESEARCH:**  
+- None new opened this session - the honest next step is synthesis, not another open question.
+
+**Signed:** Sagar Raut &emsp; **Date:** August 18, 2026
+
+---
+
