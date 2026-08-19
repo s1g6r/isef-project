@@ -161,7 +161,7 @@ def main():
         ax.legend(fontsize=8)
 
     plt.tight_layout()
-    plt.savefig(OUT_PLOT, dpi=150)
+    plt.savefig(OUT_PLOT, dpi=300)
     print(f"\nPlot saved to {OUT_PLOT}")
 
     print("\n" + "=" * 60)

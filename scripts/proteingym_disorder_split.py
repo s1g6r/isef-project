@@ -192,7 +192,7 @@ def main():
     axes[0].set_ylabel("AUC")
     fig.suptitle("Ordered vs. IDR AUC: ClinVar (curated) vs. ProteinGym (leak-free, exhaustive)")
     plt.tight_layout()
-    plt.savefig("outputs/proteingym_disorder_split.png", dpi=150)
+    plt.savefig("outputs/proteingym_disorder_split.png", dpi=300)
     print("Plot saved to outputs/proteingym_disorder_split.png")
 
     print("\nDone.")

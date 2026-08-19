@@ -827,3 +827,40 @@ Citations are done. Move on to either the poster (reusing the draft's structure 
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 19, 2026  
+**SESSION:** #16  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Start the poster, picked over the ClinVar-XML evidence-code analysis since the poster is an actual required deliverable for the regional fair and reuses work that's already finished, rather than opening a new engineering task.
+
+**BACKGROUND / REASONING:**  
+Checking what figures already existed before writing any poster text turned up a real gap: two of the project's three key results - the leak-free ClinVar-vs-ProteinGym AUC comparison and the composition-difficulty decile stratification - were only ever printed to the terminal, never plotted. That's fine for a lab notebook but not for a poster, where a panel without a chart is much weaker than one with a chart. Built those two figures before writing any poster text, so the poster draft could actually point at something real instead of leaving placeholder gaps.
+
+**WHAT I DID:**  
+1. Wrote `scripts/plot_leak_free_comparison.py` - a grouped bar chart comparing ClinVar AUC to ProteinGym leak-free AUC for both predictors, reusing session 11's already-saved joined data instead of reloading the 64-million-row AlphaMissense file. Numbers matched session 11 exactly on the first run.
+2. Wrote `scripts/plot_median_distance_deciles.py` - the AUC-by-decile line chart from session 12, same approach (reused session 12's saved stratified data). Numbers matched exactly.
+3. First version of the bar chart had the ESM-1b ClinVar AUC label clipped behind the legend box - fixed by widening the y-axis limit and repositioning the legend.
+4. Wrote `poster_draft.md` - panel-by-panel poster content (title, question/background, methods, three results panels each built around one figure, and a discussion/limitations/future-work panel), condensed way down from the paper draft's prose since poster text has to be readable from several feet away, not read closely like a paper.
+5. Noticed all four key figures were saved at 150 DPI, which would look soft printed at poster size - changed the `dpi=150` to `dpi=300` in all four plotting scripts (the two new ones plus the existing RDD and disorder-split scripts) and reran all four rather than leaving it as a follow-up note.
+
+**DATA / RESULTS:**  
+No new findings this session - built two missing figures from already-established results and organized existing findings into poster form. New/updated files: `outputs/proteingym_leak_free_comparison.png`, `outputs/proteingym_median_distance_deciles.png` (new), `outputs/rdd_plots.png`, `outputs/proteingym_disorder_split.png` (both re-exported at 300 DPI), `poster_draft.md`.
+
+**OBSERVATIONS:**  
+Laying the four key figures out side by side for the poster made the overall shape of the project's argument easier to see at a glance than it had been across thirteen separate session write-ups: no jump at release (figure 1) → but a big drop on leak-free data anyway (figure 2) → about half of that drop is composition, not leakage (figure 3) → and the part of it tied to disordered regions specifically is much worse than ClinVar showed (figure 4). Four figures, one coherent story, without needing to read the paper's full prose to follow it - which is exactly what a poster needs to do.
+
+**PROBLEMS ENCOUNTERED:**  
+1. The leak-free comparison bar chart's first draft had a data label overlapping the legend box - not a data error, just a layout fix (wider y-axis headroom, legend moved to a clearer position).
+
+**NEXT SESSION GOAL:**  
+Turn `poster_draft.md`'s content into the actual poster file (PowerPoint, Canva, or similar) and get it printed or ready to print well ahead of the mid-February regional fair. After that, or in parallel if there's time, start the ClinVar-XML evidence-code analysis that's been open since the original plan.
+
+**QUESTIONS TO RESEARCH:**  
+- What poster size and printing service does the regional fair actually require or recommend - need to check this before finalizing poster dimensions.
+
+**Signed:** Sagar Raut &emsp; **Date:** August 19, 2026
+
+---
+
