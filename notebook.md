@@ -750,3 +750,41 @@ Both original hypotheses (H1's release-date RDD design, H2's leak-free ClinVar-v
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 19, 2026  
+**SESSION:** #14  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Start the actual paper draft. All three analysis threads (the release-date test, the leak-free ProteinGym comparison, and its ordered-vs-disordered extension) have solid, honestly-framed results now, so the next real step is writing the full narrative rather than opening another analysis thread.
+
+**BACKGROUND / REASONING:**  
+Nothing new was tested this session - this was about organizing thirteen sessions of results into one coherent document a judge or reader could actually follow, without either overclaiming the release-date null result into "circularity disproven" or overclaiming the leak-free gap into "leakage confirmed." Both of those would misstate what the data actually shows.
+
+**WHAT I DID:**  
+1. Reread the full notebook front to back, plus the running results log, to pull every number into the draft directly from the original session records rather than from memory of what they said.
+2. Wrote a full first draft: abstract, introduction, background on the four predictors and disordered regions, methods, three results subsections (the release-date test, the leak-free benchmark comparison, and the disordered-region extension), a discussion section that separates what's actually established from what isn't, a limitations section, and a references list.
+3. Deliberately kept the two findings separate in the framing rather than blending them into one story: the release-date test is a real negative result (rules out a sudden leakage jump), and the leak-free comparison is a real positive result (ClinVar accuracy doesn't transfer), and the paper says both of those plainly instead of picking one and downplaying the other.
+4. Flagged everything not yet done as a limitation rather than skipping it silently - REVEL and PolyPhen-2 were never conclusively tested by the release-date design, and the ClinVar-XML evidence-code idea from the original plan was never actually built.
+
+**DATA / RESULTS:**  
+No new data this session - the draft pulls together numbers from every prior session's results. Saved as `paper_draft.md` in the project root.
+
+**OBSERVATIONS:**  
+Writing the whole thing out in one place made a structural point clearer than it was scattered across separate session entries: this project's most defensible finding isn't "AlphaMissense is circularly validated," which the release-date evidence actually argues against. It's narrower and still real - ClinVar-based accuracy numbers don't transfer to an independent, lab-measured benchmark nearly as well as published numbers suggest, and that gap shows up two separate ways (the overall AUC drop, and the disordered-region gap) that don't depend on each other. Getting that distinction right in the abstract and conclusion, not just buried in a discussion paragraph, took a few rewrites - it's the single easiest thing to get wrong in a quick read of this project.
+
+Citations are written from memory of the actual papers (author names, exact journal, DOI) and are flagged directly in the draft as needing verification before this goes anywhere public - didn't want to state a citation with more confidence than I actually have in it.
+
+**PROBLEMS ENCOUNTERED:**  
+None - this was a synthesis session, not new analysis.
+
+**NEXT SESSION GOAL:**  
+Verify every citation in the references section against the actual papers (author list, journal, year, DOI) before treating the draft as citable. After that, either start on the poster (which can mostly reuse this draft's structure and the three key figures already produced) or begin the ClinVar-XML evidence-code analysis that's been an open item since the original project plan.
+
+**QUESTIONS TO RESEARCH:**  
+- What's the fastest reliable way to verify five academic citations without a library database subscription - Google Scholar direct lookup, or checking each journal's own site directly?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 19, 2026
+
+---
+
