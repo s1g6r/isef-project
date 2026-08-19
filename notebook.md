@@ -788,3 +788,42 @@ Verify every citation in the references section against the actual papers (autho
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 19, 2026  
+**SESSION:** #15  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Verify every citation in the paper draft against the real papers before treating any of them as final, since they were written from memory last session and flagged as unverified.
+
+**BACKGROUND / REASONING:**  
+A citation that's wrong in a small, checkable way (wrong author list, wrong journal) is exactly the kind of mistake a judge or reader can catch instantly and lose trust in the rest of the paper over, even if the actual science is solid. Worth the time to check every one directly rather than assume memory of a paper I read weeks ago was accurate.
+
+**WHAT I DID:**  
+1. Looked up all five core predictor/methods citations (AlphaMissense, ESM-1b, REVEL, PolyPhen-2, the ClinGen PP3/BP4 calibration paper) directly - confirmed full author lists, exact journal, volume, and DOI for all five. All five matched what was in the draft closely, with the full author lists now filled in.
+2. Looked up the three disordered-region papers cited in the background section, since those had been cited with a name/date I wasn't fully sure of.
+3. Found a real error: the paper I remembered as "Lin et al., BMC Genomics" is actually by Federica Luppino, Swantje Lenz, Chi Fung Willis Chow, and Agnes Toth-Petroczy (Max Planck Institute of Molecular Cell Biology and Genetics) - there's no "Lin" among the authors at all. Fixed the citation everywhere it appeared in the draft.
+4. Confirmed the PLOS Computational Biology paper's authors (Mohamed Fawzy and Joseph A. Marsh, University of Edinburgh) and the specific claim I'd attributed to it - that the apparent IDR performance pattern comes from an unusually high density of easy, obviously-benign variants in disordered regions rather than any real improvement at catching pathogenic ones. That claim checked out and is a closer, more specific match to my own project's findings than I'd realized, so I added a sentence connecting it directly to session 13's result in the discussion section.
+5. Confirmed the bioRxiv paper's authors (Rohan D. Gnanaolivu and Steven N. Hart, Mayo Clinic) and, more importantly, verified the specific number I'd cited from it - AlphaMissense's AUC of 0.94 in ordered regions versus 0.85 in disordered ones - actually appears in that paper rather than being a number I misremembered from somewhere else.
+6. Confirmed the ProteinGym citation (Notin et al., NeurIPS 2023 Datasets and Benchmarks track) with full author list and page numbers.
+7. Updated every reference in `paper_draft.md`'s references section with full, verified details, removed the "citations unverified" note from the top of the draft, and fixed the in-text citation in the background section.
+
+**DATA / RESULTS:**  
+All 9 citations in the draft now verified against the actual publication. One real error caught and fixed (the "Lin et al." misattribution). No other errors found - the other 8 all matched what had been written from memory.
+
+**OBSERVATIONS:**  
+Worth noting for future writing sessions: memory of a paper's specific claims (the actual scientific content) held up better than memory of exact author names - I had the right papers and the right findings in every case, but got one author list flatly wrong. That's a useful pattern to watch for going forward: trust content recall more than citation-detail recall, and always verify the latter directly rather than assuming a name "sounds right."
+
+**PROBLEMS ENCOUNTERED:**  
+1. Direct fetch of the bioRxiv preprint page returned a 403 (blocked), so the exact AUC figures had to be confirmed through search results referencing the paper's content rather than the paper's page directly. Cross-checked against multiple independent search results describing the same number before trusting it.
+
+**NEXT SESSION GOAL:**  
+Citations are done. Move on to either the poster (reusing the draft's structure and the three key figures already produced) or the ClinVar-XML evidence-code analysis that's been an open item since the original plan.
+
+**QUESTIONS TO RESEARCH:**  
+- None new this session.
+
+**Signed:** Sagar Raut &emsp; **Date:** August 19, 2026
+
+---
+
