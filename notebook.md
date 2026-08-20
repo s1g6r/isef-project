@@ -864,3 +864,58 @@ Turn `poster_draft.md`'s content into the actual poster file (PowerPoint, Canva,
 
 ---
 
+═══════════════════════════════════════════  
+**DATE:** August 20, 2026  
+**SESSION:** #17  
+═══════════════════════════════════════════  
+
+**GOAL FOR TODAY:**  
+Start the ClinVar documented-evidence analysis that's been an open item since the very beginning of the project - does restricting to variants with real, non-computational evidence on record change anything about how AlphaMissense and ESM-1b's ClinVar accuracy should be interpreted.
+
+**BACKGROUND / REASONING:**  
+This idea has been on the list since session 1 but never actually built, because it needed per-submission free-text data that the project's main dataset never carried - the ClinVar file used throughout (`variant_summary.txt.gz`) only has one aggregated classification per variant, not the individual pieces of evidence behind it. Getting at that meant finding and researching a new ClinVar data source before writing any code, the same discipline used for REVEL/PolyPhen-2/ProteinGym earlier in the project.
+
+**WHAT I DID:**  
+1. Researched ClinVar's available downloads before committing to anything. The full per-submission XML files are enormous - the current release is 5.8GB compressed, probably 10x that uncompressed - and would need real streaming-XML engineering to touch safely. Found a much better option: `submission_summary.txt.gz` (387MB), a flat per-submission file with a free-text `Description` field and a `CollectionMethod` field, keyed by VariationID instead of the AlleleID this project has used throughout.
+2. Checked whether a VariationID-to-AlleleID mapping already existed before downloading anything new - it did: `variant_summary.txt.gz`, already on disk since session 1, has both columns side by side. No new download needed for that step.
+3. Spot-checked a few real rows of `submission_summary.txt` before writing any processing code, and found something genuinely useful: many submitters write the literal ACMG evidence codes they used directly into the free-text description (e.g. "classified as Likely pathogenic based on ACMG criteria: PVS1_vstrong, PM2_mod"). Of the 28 standard ACMG/AMP codes, exactly two - PP3 and BP4 - represent computational/in-silico prediction evidence. Every other code represents something else (functional data, segregation, population frequency, etc.), so a variant citing any non-PP3/BP4 code has documented non-computational evidence on record.
+4. Downloaded `submission_summary.txt.gz` and wrote `scripts/get_clinvar_evidence_codes.py` - builds the AlleleID-to-VariationID map, then streams the 387MB file filtered to only the ~210K VariationIDs already in the project's dataset (same memory-safe streaming pattern as the dbNSFP and gnomAD joins from sessions 8 and 10), extracting every ACMG code mentioned per variant via regex.
+5. First run used `\bCODE\b` for the regex and came back with 32,410 variants matched. Before trusting that number, tested the regex directly against the exact sample sentence found in step 3 - and it matched nothing. `\b` treats underscore as a word character, so "PM2_mod" has no boundary between "PM2" and "_mod," and the regex was silently missing ClinVar's common strength-modifier suffix style. Fixed by switching to explicit lookaround on alphanumeric characters only (so a trailing underscore doesn't hide a match, but a longer alphanumeric run like "PP12" still correctly doesn't match "PP1"), verified against a set of test cases including that exact failure case, then reran.
+6. Spot-checked the corrected output two ways: internally (sampled rows from both the "non-computational evidence" and "computational-only" buckets to confirm the codes matched the bucket) and externally (pulled the real raw description text for one "computational-only" variant straight from the downloaded file and confirmed it matched what the pipeline extracted).
+7. Wrote `scripts/clinvar_evidence_auc_analysis.py` to compare AlphaMissense/ESM-1b's ClinVar AUC between variants with documented non-computational evidence and variants classified using only PP3/BP4.
+8. The first AUC numbers looked like a real, if modest, result - both predictors scored slightly *lower* on the computational-only bucket, the opposite direction circularity would predict. Before writing that up as a finding, broke the computational-only bucket down further and found the problem: it's 2,360 BP4-only variants (0 pathogenic among them - BP4 by definition supports a benign call, so a pathogenic label essentially can't coexist with a BP4-only classification) plus only 7 PP3-only variants (6 pathogenic). The whole AUC number for that bucket rests on ranking those same 6 pathogenic variants against thousands of benign ones. That's nowhere near enough to conclude anything.
+
+**DATA / RESULTS:**  
+| Metric | Value |
+|---|---|
+| Variants matched to a VariationID | 209,931 / 209,931 (100%) |
+| Variants with >=1 submission found in submission_summary.txt | 209,931 / 209,931 (100%) |
+| Variants with >=1 ACMG code extracted from free text (after regex fix) | 33,887 / 209,931 (16.1%) |
+| Variants classified: non-computational evidence documented | 31,542 |
+| Variants classified: computational (PP3/BP4) only | 2,345 |
+| Computational-only bucket: BP4-only / PP3-only / both | 2,360 / 7 / 1 |
+| Computational-only bucket: pathogenic count | 6 (all from the 7 PP3-only variants) |
+| AlphaMissense AUC: computational-only / non-computational-evidence / unknown | 0.9343 (n=2,368) / 0.9453 (n=31,984) / 0.9608 (n=178,551) |
+| ESM-1b AUC: computational-only / non-computational-evidence / unknown | 0.8860 (n=2,366) / 0.9126 (n=31,947) / 0.9316 (n=178,363) |
+
+**OBSERVATIONS:**  
+The infrastructure part of this session is real, working progress: a verified pipeline that can pull per-submission evidence data onto any variant in the project's dataset, something that's been an unimplemented open item since the very first session. That's genuinely useful groundwork regardless of what today's specific test found.
+
+The specific test - does the ClinVar AUC differ between computational-only and non-computational-evidence variants - turned out to be underpowered by the nature of the data itself, not by a mistake in the pipeline. Only about 16% of submissions spell out an exact ACMG code in free text at all, and among those, "computational-only" is overwhelmingly BP4 (a benign call, since BP4 by construction supports benign), leaving only 6 real pathogenic examples to test against. Reporting the AUC numbers above as evidence "against" circularity would be exactly the kind of overclaiming this project has tried hard to avoid elsewhere - a sample of 6 can't support that conclusion either way. The honest read is: this specific cut, using literal ACMG codes in free text as the signal, doesn't have enough statistical power to answer the question it was built to answer.
+
+The well-powered comparison sitting right next to it - non-computational-evidence (n=31,984, well-balanced at 46.5% pathogenic) vs. unknown/no-code-extracted (n=178,551, 30.5% pathogenic) - shows the unknown bucket with a *higher* AUC for both predictors. But "unknown" isn't the same thing as "computational," it just means no exact code was spelled out in that particular free-text field, so this comparison doesn't actually answer the original question either. Worth noting as a data point, not stretching it into a conclusion.
+
+**PROBLEMS ENCOUNTERED:**  
+1. The first version of the ACMG code regex used `\bCODE\b`, which silently failed to match ClinVar's common "CODE_strength" suffix style (e.g. "PM2_mod") because `\b` treats underscore as a word character. Caught by testing the regex directly against a real example sentence before trusting the extraction's coverage numbers, not by noticing wrong output later - the same "verify before trusting" discipline used throughout this project.
+2. Nearly reported the computational-only-vs-non-computational AUC difference as a real (if small) finding before checking the class balance behind it. Breaking the bucket down by exact code combination caught that it rests on just 6 pathogenic variants - a good reminder that a computed number needing no obvious bug doesn't mean it's reliable; the sample size behind it still has to be checked.
+
+**NEXT SESSION GOAL:**  
+Two honest options for this thread, not yet decided: (a) try a broader signal than literal ACMG codes - keyword-matching "in silico," "computational," "functional," "segregat-" etc. directly in the free text, which would catch more variants but needs careful validation given the extra noise a looser match introduces; or (b) accept that this specific angle doesn't have enough statistical power with the data actually available, document it as a real limitation in the paper rather than a finding, and move on to the poster instead. Also still open from session 16: the poster hasn't been turned into an actual file yet, and the regional fair's required poster size/format is still unconfirmed.
+
+**QUESTIONS TO RESEARCH:**  
+- Is there a source of *structured* (not free-text) evidence-type data per ClinVar submission that would sidestep the free-text coverage problem entirely, rather than trying to improve the text-matching approach?
+
+**Signed:** Sagar Raut &emsp; **Date:** August 20, 2026
+
+---
+
